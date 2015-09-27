@@ -1,8 +1,11 @@
 #include <stdlib.h>
+#include <memory.h>
 
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+
+#include "lz4/lz4frame.h"
 
 #include "lz4/lz4.h"
 #include "lz4/lz4hc.h"
@@ -172,6 +175,87 @@ static int lz4_block_decompress_safe_partial(lua_State *L)
 }
 
 /*****************************************************************************
+ * Frame
+ ****************************************************************************/
+
+static int lz4_compress(lua_State *L)
+{
+  size_t in_len;
+  const char *in = luaL_checklstring(L, 1, &in_len);
+
+  LZ4F_preferences_t settings;
+  memset(&settings, 0, sizeof(settings));
+
+  // TODO: add options
+
+  size_t bound = LZ4F_compressFrameBound(in_len, &settings);
+
+#if LUA_VERSION_NUM >= 502
+  luaL_Buffer b;
+  char *out = luaL_buffinitsize(L, &b, bound);
+  size_t r = LZ4F_compressFrame(out, bound, in, in_len, &settings);
+  if (LZ4F_isError(r)) return luaL_error(L, "compression failed: %s", LZ4F_getErrorName(r));
+  luaL_pushresultsize(&b, r);
+#else
+  void *out = malloc(bound);
+  size_t r = LZ4F_compressFrame(out, bound, in, in_len, &settings);
+  if (LZ4F_isError(r))
+  {
+    free(out);
+    return luaL_error(L, "compression failed: %s", LZ4F_getErrorName(r));
+  }
+  lua_pushlstring(L, out, r);
+  free(out);
+#endif
+
+  return 1;
+}
+
+static int lz4_decompress(lua_State *L)
+{
+  size_t in_len;
+  const char *in = luaL_checklstring(L, 1, &in_len);
+  const char *p = in;
+  size_t p_len = in_len;
+
+  LZ4F_decompressionContext_t ctx = NULL;
+  LZ4F_frameInfo_t info;
+  LZ4F_errorCode_t code;
+
+  code = LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
+  if (LZ4F_isError(code)) goto decompression_failed;
+
+  luaL_Buffer b;
+  luaL_buffinit(L, &b);
+  while (1)
+  {
+#if LUA_VERSION_NUM >= 502
+    size_t out_len = 65536;
+    char *out = luaL_prepbuffsize(&b, out_len);
+#else
+    size_t out_len = LUAL_BUFFERSIZE;
+    char *out = luaL_prepbuffer(&b);
+#endif
+    size_t advance = p_len;
+    code = LZ4F_decompress(ctx, out, &out_len, p, &advance, NULL);
+    if (LZ4F_isError(code)) goto decompression_failed;
+    if (out_len == 0) break;
+    p += advance;
+    p_len -= advance;
+    luaL_addsize(&b, out_len);
+  }
+  luaL_pushresult(&b);
+
+  LZ4F_freeDecompressionContext(ctx);
+
+  return 1;
+
+decompression_failed:
+  if (ctx != NULL) LZ4F_freeDecompressionContext(ctx);
+  return luaL_error(L, "decompression failed: %s", LZ4F_getErrorName(code));
+}
+
+/*****************************************************************************
  * Export
  ****************************************************************************/
 
@@ -182,6 +266,9 @@ static const luaL_Reg export_functions[] = {
   { "block_decompress_safe",          lz4_block_decompress_safe },
   { "block_decompress_fast",          lz4_block_decompress_fast },
   { "block_decompress_safe_partial",  lz4_block_decompress_safe_partial },
+  /* Frame */
+  { "compress",                       lz4_compress },
+  { "decompress",                     lz4_decompress },
   { NULL,                             NULL },
 };
 

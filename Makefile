@@ -16,7 +16,7 @@ endif
 LUALIB     ?= lz4.so
 LUA_CFLAGS ?= -O2 -fPIC
 
-LZ4OBJS      = lz4/lz4.o lz4/lz4hc.o
+LZ4OBJS     = lz4/lz4.o lz4/lz4hc.o lz4/lz4frame.o lz4/xxhash.o
 
 CMOD        = $(LUALIB)
 OBJS        = lua_lz4.o

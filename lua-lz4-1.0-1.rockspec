@@ -42,6 +42,8 @@ package = "lua-lz4"
               "lua_lz4.c",
               "lz4/lz4.c",
               "lz4/lz4hc.c",
+              "lz4/lz4frame.c",
+              "lz4/xxhash.c",
             },
             defines = { "LUA_BUILD_AS_DLL", "LUA_LIB", "WIN32_LEAN_AND_MEAN" },
           },
