@@ -55,7 +55,7 @@ static int _ring_policy(int buffer_size, int buffer_position, int data_size)
   return RING_POLICY_RESET;
 }
 
-static void _lua_table_fieldinteger(lua_State *L, int table_index, const char *field_name, int *value)
+static int _lua_table_optinteger(lua_State *L, int table_index, const char *field_name, int value)
 {
   int type;
   lua_getfield(L, table_index, field_name);
@@ -63,9 +63,24 @@ static void _lua_table_fieldinteger(lua_State *L, int table_index, const char *f
   if (type != LUA_TNIL)
   {
     if (type != LUA_TNUMBER) luaL_error(L, "field '%s' must be a number", field_name);
-    *value = lua_tointeger(L, -1);
+    value = lua_tointeger(L, -1);
   }
   lua_pop(L, 1);
+  return value;
+}
+
+static int _lua_table_optboolean(lua_State *L, int table_index, const char *field_name, int value)
+{
+  int type;
+  lua_getfield(L, table_index, field_name);
+  type = lua_type(L, -1);
+  if (type != LUA_TNIL)
+  {
+    if (type != LUA_TBOOLEAN) luaL_error(L, "field '%s' must be a boolean", field_name);
+    value = lua_toboolean(L, -1);
+  }
+  lua_pop(L, 1);
+  return value;
 }
 
 /*****************************************************************************
@@ -78,16 +93,25 @@ static int lz4_compress(lua_State *L)
   const char *in = luaL_checklstring(L, 1, &in_len);
   size_t bound, r;
 
-  LZ4F_preferences_t settings;
-  memset(&settings, 0, sizeof(settings));
+  LZ4F_preferences_t stack_settings;
+  LZ4F_preferences_t *settings = NULL;
 
-  // TODO: add options
+  if (lua_type(L, 2) == LUA_TTABLE)
+  {
+    memset(&stack_settings, 0, sizeof(stack_settings));
+    settings = &stack_settings;
+    settings->compressionLevel = _lua_table_optinteger(L, 2, "compression_level", 0);
+    settings->autoFlush = _lua_table_optboolean(L, 2, "auto_flush", 0);
+    settings->frameInfo.blockSizeID = _lua_table_optinteger(L, 2, "block_size", 0);
+    settings->frameInfo.blockMode = _lua_table_optboolean(L, 2, "block_independent", 0) ? LZ4F_blockIndependent : LZ4F_blockLinked;
+    settings->frameInfo.contentChecksumFlag = _lua_table_optboolean(L, 2, "content_checksum", 0) ? LZ4F_contentChecksumEnabled : LZ4F_noContentChecksum;
+  }
 
-  bound = LZ4F_compressFrameBound(in_len, &settings);
+  bound = LZ4F_compressFrameBound(in_len, settings);
 
   {
     LUABUFF_NEW(b, out, bound)
-    r = LZ4F_compressFrame(out, bound, in, in_len, &settings);
+    r = LZ4F_compressFrame(out, bound, in, in_len, settings);
     if (LZ4F_isError(r))
     {
       LUABUFF_FREE(out)
@@ -800,6 +824,15 @@ LUALIB_API int luaopen_lz4(lua_State *L)
 
   lua_pushfstring(L, "%d.%d.%d", LZ4_VERSION_MAJOR, LZ4_VERSION_MINOR, LZ4_VERSION_RELEASE);
   lua_setfield(L, table_index, "version");
+
+  lua_pushinteger(L, LZ4F_max64KB);
+  lua_setfield(L, table_index, "block_64KB");
+  lua_pushinteger(L, LZ4F_max256KB);
+  lua_setfield(L, table_index, "block_256KB");
+  lua_pushinteger(L, LZ4F_max1MB);
+  lua_setfield(L, table_index, "block_1MB");
+  lua_pushinteger(L, LZ4F_max4MB);
+  lua_setfield(L, table_index, "block_4MB");
 
   return 1;
 }

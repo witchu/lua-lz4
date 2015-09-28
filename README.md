@@ -37,7 +37,11 @@ Easy to use and compressed data contain meta data such as checksum, decompress s
 Compress `input` and return compressed data.
 * `input`: input string to be compressed.
 * `options`: optional table that can be contains
-  * block_crc
+  * `compression_level`: integer between 0 to 16
+  * `auto_flush`: boolean
+  * `block_size`: maximum block size can be `lz4.block_64KB`, `lz4.block_256KB.`, `lz4.block_1MB`, `lz4.block_4MB`
+  * `block_independent`: boolean
+  * `content_checksum`: boolean
 
 #### lz4.decompress(input)
 Decompress `input` and return decompressed data.
