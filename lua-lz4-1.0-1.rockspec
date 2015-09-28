@@ -4,16 +4,15 @@ package = "lua-lz4"
     url = "git://github.com/witchu/lua-lz4"
   }
   description = {
-    summary = "lz4 binding for Lua.",
+    summary = "LZ4 fast compression algorithm binding for Lua.",
     detailed = [[
-      Consists of two functions: compress and decompress.
-      Both functions take an input string and return an output string.
+This Lua binding is in conformance with the LZ4 block and frame specifications and also support streaming.
     ]],
     homepage = "https://github.com/witchu/lua-lz4",
     license = "Apache License 2.0"
   }
   dependencies = {
-    "lua >= 5.1"
+    "lua >= 5.1, < 5.4"
   }
   build = {
     type = "make",
