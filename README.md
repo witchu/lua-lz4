@@ -78,6 +78,16 @@ Decompress `input` and return decompressed data. It does not provide any protect
 * `decompress_length`: length of decompressed data (integer)
 
 ### Stream
+Use streaming to compress/decompress multiple blocks. The compressing blocks can be use content in previous blocks therefore more compression ratio. Decoding buffer should be either to get good performance.
+* Exactly same size as encoding buffer, with same update rule (block boundaries at same positions)
+      In which case, the decoding & encoding ring buffer can have any size, including very small ones ( < 64 KB).
+* Larger than encoding buffer, by a minimum of maxBlockSize more bytes.
+      maxBlockSize is implementation dependent. It's the maximum size you intend to compress into a single block.
+      In which case, encoding and decoding buffers do not need to be synchronized,
+      and encoding ring buffer can have any size, including small ones ( < 64 KB).
+* _At least_ 64 KB + 8 bytes + maxBlockSize.
+      In which case, encoding and decoding buffers do not need to be synchronized,
+      and encoding ring buffer can have any size, including larger than decoding buffer.
 
 Example:
 ```lua
@@ -91,10 +101,31 @@ assert(dec:decompress_safe(com:compress(s2), #s2) == s2)
 ```
 
 #### lz4.new_compression_stream([ring_buffer_size[, accelerate]])
+New a `lz4.compression_stream` object.
+* `ring_buffer_size`: integer
+* `accelerate`: integer
+
+#### `lz4.compression_stream` methods
+* `reset([dictionary])` forget internal dictionary or reset to new dictionary
+* `compress(input)`
 
 #### lz4.new_compression_stream_hc([ring_buffer_size[, compression_level]])
+New a `lz4.compression_stream_hc` object.
+* `ring_buffer_size`: integer
+* `compression_level`: integer
 
-#### lz4.new_decompression_stream(ring_buffer_size)
+#### `lz4.compression_stream_hc` methods
+* `reset([dictionary])` forget internal dictionary or reset to new dictionary
+* `compress(input)`
+
+#### lz4.new_decompression_stream([ring_buffer_size])
+New a `lz4.decompression_stream` object.
+* `ring_buffer_size`: integer
+
+#### `lz4.decompression_stream` methods
+* `reset([dictionary])` forget internal dictionary or reset to new dictionary
+* `decompress_safe(input, decompress_length)`
+* `decompress_fast(input, decompress_length)`
 
 
 
