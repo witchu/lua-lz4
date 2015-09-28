@@ -30,6 +30,32 @@ make
 
 ## Documentations
 
+### Frame
+Easy to use and compressed data contain meta data such as checksum, decompress size, etc. The compressed/decompressed data in frame format can be exchange with other programs.
+
+#### lz4.compress(input[, options])
+Compress `input` and return compressed data.
+* `input`: input string to be compressed.
+* `options`: optional table that can be contains
+  * block_crc
+
+#### lz4.decompress(input)
+Decompress `input` and return decompressed data.
+* `input`: input string to be decompressed.
+
+### Block
+Basic compression/decompression in plain block format. Require `decompress_length` to decompress data.
+
+#### lz4.block_compress(input[, accelerate])
+#### lz4.block_compress_hc(input[, quality])
+#### lz4.block_decompress_safe(input, decompress_length)
+#### lz4.block_decompress_fast(input, decompress_length)
+
+### Stream
+
+#### lz4.new_compression_stream([ring_buffer_size[, accelerate]])
+#### lz4.new_compression_stream_hc([ring_buffer_size[, qualtily]])
+#### lz4.new_decompression_stream(ring_buffer_size)
 
 
 
