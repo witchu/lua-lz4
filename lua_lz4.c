@@ -17,9 +17,9 @@
 
 #if LUA_VERSION_NUM < 502
 #define luaL_newlib(L, function_table) do { \
-  lua_newtable(L); \
-  luaL_register(L, NULL, function_table); \
-  while (0)
+  lua_newtable(L);                          \
+  luaL_register(L, NULL, function_table);   \
+  } while (0)
 #endif
 
 #if LUA_VERSION_NUM >= 502
@@ -57,8 +57,9 @@ static int _ring_policy(int buffer_size, int buffer_position, int data_size)
 
 static void _lua_table_fieldinteger(lua_State *L, int table_index, const char *field_name, int *value)
 {
+  int type;
   lua_getfield(L, table_index, field_name);
-  int type = lua_type(L, -1);
+  type = lua_type(L, -1);
   if (type != LUA_TNIL)
   {
     if (type != LUA_TNUMBER) luaL_error(L, "field '%s' must be a number", field_name);
@@ -75,22 +76,25 @@ static int lz4_compress(lua_State *L)
 {
   size_t in_len;
   const char *in = luaL_checklstring(L, 1, &in_len);
+  size_t bound, r;
 
   LZ4F_preferences_t settings;
   memset(&settings, 0, sizeof(settings));
 
   // TODO: add options
 
-  size_t bound = LZ4F_compressFrameBound(in_len, &settings);
+  bound = LZ4F_compressFrameBound(in_len, &settings);
 
-  LUABUFF_NEW(b, out, bound)
-  size_t r = LZ4F_compressFrame(out, bound, in, in_len, &settings);
-  if (LZ4F_isError(r))
   {
-    LUABUFF_FREE(out)
-    return luaL_error(L, "compression failed: %s", LZ4F_getErrorName(r));
+    LUABUFF_NEW(b, out, bound)
+    r = LZ4F_compressFrame(out, bound, in, in_len, &settings);
+    if (LZ4F_isError(r))
+    {
+      LUABUFF_FREE(out)
+      return luaL_error(L, "compression failed: %s", LZ4F_getErrorName(r));
+    }
+    LUABUFF_PUSH(b, out, r)
   }
-  LUABUFF_PUSH(b, out, r)
 
   return 1;
 }
@@ -109,26 +113,28 @@ static int lz4_decompress(lua_State *L)
   code = LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
   if (LZ4F_isError(code)) goto decompression_failed;
 
-  luaL_Buffer b;
-  luaL_buffinit(L, &b);
-  while (1)
   {
+    luaL_Buffer b;
+    luaL_buffinit(L, &b);
+    while (1)
+    {
 #if LUA_VERSION_NUM >= 502
-    size_t out_len = 65536;
-    char *out = luaL_prepbuffsize(&b, out_len);
+      size_t out_len = 65536;
+      char *out = luaL_prepbuffsize(&b, out_len);
 #else
-    size_t out_len = LUAL_BUFFERSIZE;
-    char *out = luaL_prepbuffer(&b);
+      size_t out_len = LUAL_BUFFERSIZE;
+      char *out = luaL_prepbuffer(&b);
 #endif
-    size_t advance = p_len;
-    code = LZ4F_decompress(ctx, out, &out_len, p, &advance, NULL);
-    if (LZ4F_isError(code)) goto decompression_failed;
-    if (out_len == 0) break;
-    p += advance;
-    p_len -= advance;
-    luaL_addsize(&b, out_len);
+      size_t advance = p_len;
+      code = LZ4F_decompress(ctx, out, &out_len, p, &advance, NULL);
+      if (LZ4F_isError(code)) goto decompression_failed;
+      if (out_len == 0) break;
+      p += advance;
+      p_len -= advance;
+      luaL_addsize(&b, out_len);
+    }
+    luaL_pushresult(&b);
   }
-  luaL_pushresult(&b);
 
   LZ4F_freeDecompressionContext(ctx);
 
@@ -148,20 +154,23 @@ static int lz4_block_compress(lua_State *L)
   size_t in_len;
   const char *in = luaL_checklstring(L, 1, &in_len);
   int accelerate = luaL_optinteger(L, 2, 0);
+  int bound, r;
 
   if (in_len > LZ4_MAX_INPUT_SIZE)
     return luaL_error(L, "input longer than %d", LZ4_MAX_INPUT_SIZE);
 
-  int bound = LZ4_compressBound(in_len);
+  bound = LZ4_compressBound(in_len);
 
-  LUABUFF_NEW(b, out, bound)
-  int r = LZ4_compress_fast(in, out, in_len, bound, accelerate);
-  if (r == 0)
   {
-    LUABUFF_FREE(out)
-    return luaL_error(L, "compression failed");
+    LUABUFF_NEW(b, out, bound)
+    r = LZ4_compress_fast(in, out, in_len, bound, accelerate);
+    if (r == 0)
+    {
+      LUABUFF_FREE(out)
+      return luaL_error(L, "compression failed");
+    }
+    LUABUFF_PUSH(b, out, r)
   }
-  LUABUFF_PUSH(b, out, r)
 
   return 1;
 }
@@ -171,20 +180,23 @@ static int lz4_block_compress_hc(lua_State *L)
   size_t in_len;
   const char *in = luaL_checklstring(L, 1, &in_len);
   int level = luaL_optinteger(L, 2, 0);
+  int bound, r;
 
   if (in_len > LZ4_MAX_INPUT_SIZE)
     return luaL_error(L, "input longer than %d", LZ4_MAX_INPUT_SIZE);
 
-  int bound = LZ4_compressBound(in_len);
+  bound = LZ4_compressBound(in_len);
 
-  LUABUFF_NEW(b, out, bound)
-  int r = LZ4_compress_HC(in, out, in_len, bound, level);
-  if (r == 0)
   {
-    LUABUFF_FREE(out)
-    return luaL_error(L, "compression failed");
+    LUABUFF_NEW(b, out, bound)
+    r = LZ4_compress_HC(in, out, in_len, bound, level);
+    if (r == 0)
+    {
+      LUABUFF_FREE(out)
+      return luaL_error(L, "compression failed");
+    }
+    LUABUFF_PUSH(b, out, r)
   }
-  LUABUFF_PUSH(b, out, r)
 
   return 1;
 }
@@ -194,9 +206,10 @@ static int lz4_block_decompress_safe(lua_State *L)
   size_t in_len;
   const char *in = luaL_checklstring(L, 1, &in_len);
   int out_len = luaL_checkinteger(L, 2);
+  int r;
 
   LUABUFF_NEW(b, out, out_len)
-  int r = LZ4_decompress_safe(in, out, in_len, out_len);
+  r = LZ4_decompress_safe(in, out, in_len, out_len);
   if (r < 0)
   {
     LUABUFF_FREE(out)
@@ -213,14 +226,17 @@ static int lz4_block_decompress_fast(lua_State *L)
   const char *in = luaL_checklstring(L, 1, &in_len);
   int out_len = luaL_checkinteger(L, 2);
 
-  LUABUFF_NEW(b, out, out_len)
-  int r = LZ4_decompress_fast(in, out, out_len);
-  if (r < 0)
   {
-    LUABUFF_FREE(out)
-    return luaL_error(L, "corrupt input or incorrect output length");
+    int r;
+    LUABUFF_NEW(b, out, out_len)
+    r = LZ4_decompress_fast(in, out, out_len);
+    if (r < 0)
+    {
+      LUABUFF_FREE(out)
+      return luaL_error(L, "corrupt input or incorrect output length");
+    }
+    LUABUFF_PUSH(b, out, out_len)
   }
-  LUABUFF_PUSH(b, out, out_len)
 
   return 1;
 }
@@ -231,9 +247,10 @@ static int lz4_block_decompress_safe_partial(lua_State *L)
   const char *in = luaL_checklstring(L, 1, &in_len);
   int target_len = luaL_checkinteger(L, 2);
   int out_len = luaL_checkinteger(L, 3);
+  int r;
 
   LUABUFF_NEW(b, out, out_len)
-  int r = LZ4_decompress_safe_partial(in, out, in_len, target_len, out_len);
+  r = LZ4_decompress_safe_partial(in, out, in_len, target_len, out_len);
   if (r < 0)
   {
     LUABUFF_FREE(out)
@@ -776,9 +793,10 @@ static const luaL_Reg export_functions[] = {
 
 LUALIB_API int luaopen_lz4(lua_State *L)
 {
+  int table_index;
   luaL_newlib(L, export_functions);
 
-  int table_index = lua_gettop(L);
+  table_index = lua_gettop(L);
 
   lua_pushfstring(L, "%d.%d.%d", LZ4_VERSION_MAJOR, LZ4_VERSION_MINOR, LZ4_VERSION_RELEASE);
   lua_setfield(L, table_index, "version");

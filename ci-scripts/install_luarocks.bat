@@ -10,4 +10,5 @@ cd luarocks-2.2.2-win32
 call install /P c:\luarocks /SELFCONTAINED /L /NOADMIN /F /Q
 call c:\luarocks\2.2\luarocks path --bin > setpath.bat
 call setpath.bat
+set lua_path=.\?.lua;%luapath%
 popd

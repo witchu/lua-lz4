@@ -37,7 +37,7 @@ package = "lua-lz4"
       windows = {
         type = "builtin",
         modules = {
-          brotli = {
+          lz4 = {
             sources = {
               "lua_lz4.c",
               "lz4/lz4.c",
