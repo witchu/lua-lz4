@@ -10,7 +10,7 @@
 Simple frame compression/decompression
 ```lua
 local lz4 = require("lz4")
-local s = "Hello, World!!"
+local s = "LZ4 is a very fast compression and decompression algorithm."
 assert(lz4.decompress(lz4.compress(s)) == s)
 ```
 
@@ -50,15 +50,50 @@ Decompress `input` and return decompressed data.
 ### Block
 Basic compression/decompression in plain block format. Require `decompress_length` to decompress data.
 
+Example:
+```lua
+local lz4 = require("lz4")
+local s = "LZ4 is a very fast compression and decompression algorithm."
+assert(lz4.block_decompress_safe(lz4.block_compress(s), #s) == s)
+```
+
 #### lz4.block_compress(input[, accelerate])
-#### lz4.block_compress_hc(input[, quality])
+Compress `input` and return compressed data.
+* `input`: input string to be compressed.
+* `accelerate`: optional integer
+
+#### lz4.block_compress_hc(input[, compression_level])
+Compress `input` in high compression mode and return compressed data.
+* `input`: input string to be compressed.
+* `compression_level`: optional integer
+
 #### lz4.block_decompress_safe(input, decompress_length)
+Decompress `input` and return decompressed data. This function is protected against buffer overflow exploits, including malicious data packets.
+* `input`: input string to be decompressed.
+* `decompress_length`: length of decompressed data (integer)
+
 #### lz4.block_decompress_fast(input, decompress_length)
+Decompress `input` and return decompressed data. It does not provide any protection against intentionally modified data stream (malicious input). Use this function in trusted environment only (data to decode comes from a trusted source).
+* `input`: input string to be decompressed.
+* `decompress_length`: length of decompressed data (integer)
 
 ### Stream
 
+Example:
+```lua
+local lz4 = require("lz4")
+local s1 = "LZ4 is a very fast compression and decompression algorithm."
+local s2 = "lua-lz4 - LZ4 binding for Lua"
+local com = lz4.new_compression_stream()
+local dec = lz4.new_decompression_stream()
+assert(dec:decompress_safe(com:compress(s1), #s1) == s1)
+assert(dec:decompress_safe(com:compress(s2), #s2) == s2)
+```
+
 #### lz4.new_compression_stream([ring_buffer_size[, accelerate]])
-#### lz4.new_compression_stream_hc([ring_buffer_size[, qualtily]])
+
+#### lz4.new_compression_stream_hc([ring_buffer_size[, compression_level]])
+
 #### lz4.new_decompression_stream(ring_buffer_size)
 
 
